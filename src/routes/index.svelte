@@ -11,23 +11,20 @@
 	//console.log(buildDate);
 	let timeSinceBuild = timeAgo(buildDate);
 	//console.log(timeSinceBuild);
-	updateTimeSinceBuild();
 	function updateTimeSinceBuild() {
 		timeSinceBuild = timeAgo(buildDate);
-		setTimeout(updateTimeSinceBuild, 1000);
 	}
+    updateTimeSinceBuild();
+	setInterval(updateTimeSinceBuild, 1000);
 
 	// const date2 = new Date('1995-12-17T03:24:00');
 	const no_time = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T11:20:00'));
 	const one_sec = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T11:20:01'));
 	const five_nine_sec = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T11:20:59'));
 	const six_o_sec = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T11:21:00'));
-	const five_nine_min = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T12:19:00'));
-	const five_nine_min_five_nine = timeAgo(
-		new Date('2022-02-20T11:20:00'),
-		new Date('2022-02-20T12:19:59')
-	);
-	const one_hour = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T12:20:00'));
+    const five_nine_min = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T12:19:00'));
+    const five_nine_min_five_nine = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T12:19:59'));
+    const one_hour = timeAgo(new Date('2022-02-20T11:20:00'), new Date('2022-02-20T12:20:00'));
 
 	function timeAgo(input, now = Date.now()) {
 		const date = input instanceof Date ? input : new Date(input);
@@ -44,7 +41,7 @@
 		const secondsElapsed = (date - now) / 1000;
 		for (let key in ranges) {
 			if (Math.abs(secondsElapsed) < 1) {
-				return '***NOW***';
+				return "***NOW***";
 			}
 			if (ranges[key] <= Math.abs(secondsElapsed)) {
 				const delta = secondsElapsed / ranges[key];
