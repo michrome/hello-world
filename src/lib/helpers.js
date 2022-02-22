@@ -1,3 +1,8 @@
+import { CANONICAL_BASE_URL } from '$lib/constants';
+
+export function canonicalUrl(path) {
+	return new URL(path, CANONICAL_BASE_URL).href;
+}
 export function friendlySeconds(secondsElapsed) {
 	const formatter = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' });
 	if (secondsElapsed === 0) return formatter.format(0, 'seconds');
