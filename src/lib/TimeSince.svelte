@@ -1,14 +1,14 @@
 <script>
+	import { browser } from '$app/env';
 	import { onMount } from 'svelte';
 	export let time;
-	let now = false;
+	let now = Date.now();
 
 	$: secondsElapsed = now ? Math.round((time - now) / 1000) : 0;
 
 	onMount(() => {
-		setNow();
 		const interval = setInterval(() => {
-			setNow();
+			now = Date.now();
 		}, 1000);
 		return () => clearInterval(interval);
 	});
@@ -32,12 +32,8 @@
 			}
 		}
 	}
-
-	function setNow() {
-		now = Date.now();
-	}
 </script>
 
-{#if now}
+{#if browser}
 	{@html ' '}({friendlySeconds(secondsElapsed)})
 {/if}
