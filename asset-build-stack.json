@@ -1,0 +1,287 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "A CloudFormation stack that sets up a CodeBuild Project. The project deploys a static SvelteKit build to a S3 Bucket. When new images are added to ouur images folder, S3 sends a notification to a Lambda function which starts the project build.",
+	"Parameters": {
+		"AssetBucketName": {
+			"Type": "String",
+			"Description": "Name of the S3 Bucket storing our web assets"
+		},
+		"AssetFolder": {
+			"Type": "String",
+			"Default": "www",
+			"Description": "The name of the folder in AssetBucket for our web assets"
+		},
+		"CanonicalBaseUrl": {
+			"Type": "String",
+			"Description": "Our canonical base URL e.g. https://example.com"
+		},
+		"CodeBuildProjectGitUrl": {
+			"Type": "String",
+			"Description": "The git URL to build e.g. https://github.com/user/project"
+		},
+		"CodeBuildProjectGitBranch": {
+			"Type": "String",
+			"Default": "main",
+			"Description": "The git branch to build"
+		},
+		"CodeBuildProjectName": {
+			"Type": "String",
+			"Description": "The name of our CodeBuild project"
+		},
+		"ImageFolder": {
+			"Type": "String",
+			"Default": "www/images",
+			"Description": "The name of the folder in AssetBucket for our images. You probably need to edit if changing CanonicalBaseUrl or ImageUrlPath."
+		},
+		"ImageUrlPath": {
+			"Type": "String",
+			"Default": "images",
+			"Description": "The URL path for images"
+		}
+	},
+	"Resources": {
+		"AssetBucket": {
+			"Type": "AWS::S3::Bucket",
+			"DependsOn": "AssetBucketInvokeStartBuildFunctionPermission",
+			"Properties": {
+				"BucketName": { "Ref": "AssetBucketName" },
+				"NotificationConfiguration": {
+					"LambdaConfigurations": [
+						{
+							"Event": "s3:ObjectCreated:*",
+							"Filter": {
+								"S3Key": {
+									"Rules": [
+										{
+											"Name": "prefix",
+											"Value": { "Fn::Sub": "${ImageFolder}/" }
+										}
+									]
+								}
+							},
+							"Function": { "Fn::GetAtt": ["StartBuildFunction", "Arn"] }
+						},
+						{
+							"Event": "s3:ObjectRemoved:*",
+							"Filter": {
+								"S3Key": {
+									"Rules": [
+										{
+											"Name": "prefix",
+											"Value": { "Fn::Sub": "${ImageFolder}/" }
+										}
+									]
+								}
+							},
+							"Function": { "Fn::GetAtt": ["StartBuildFunction", "Arn"] }
+						}
+					]
+				},
+				"PublicAccessBlockConfiguration": {
+					"BlockPublicAcls": true,
+					"BlockPublicPolicy": true,
+					"IgnorePublicAcls": true,
+					"RestrictPublicBuckets": true
+				}
+			}
+		},
+		"AssetBucketInvokeStartBuildFunctionPermission": {
+			"Type": "AWS::Lambda::Permission",
+			"Properties": {
+				"Action": "lambda:InvokeFunction",
+				"FunctionName": { "Fn::GetAtt": ["StartBuildFunction", "Arn"] },
+				"Principal": "s3.amazonaws.com",
+				"SourceArn": { "Fn::Sub": "arn:aws:s3:::${AssetBucketName}" }
+			}
+		},
+		"CodeBuildProject": {
+			"Type": "AWS::CodeBuild::Project",
+			"Properties": {
+				"Artifacts": {
+					"EncryptionDisabled": true,
+					"Location": { "Ref": "AssetBucket" },
+					"Name": "/",
+					"Path": { "Ref": "AssetFolder" },
+					"Type": "S3"
+				},
+				"ConcurrentBuildLimit": 1,
+				"Description": {
+					"Fn::Sub": "CodeBuild Project for ${CanonicalBaseUrl}. Managed by ${AWS::StackName} stack"
+				},
+				"Environment": {
+					"ComputeType": "BUILD_GENERAL1_SMALL",
+					"EnvironmentVariables": [
+						{
+							"Name": "ASSET_BUCKET_NAME",
+							"Value": { "Ref": "AssetBucketName" }
+						},
+						{
+							"Name": "ASSET_FOLDER",
+							"Value": { "Ref": "AssetFolder" }
+						},
+						{
+							"Name": "AWS_REGION",
+							"Value": { "Ref": "AWS::Region" }
+						},
+						{
+							"Name": "CANONICAL_BASE_URL",
+							"Value": { "Ref": "CanonicalBaseUrl" }
+						},
+						{
+							"Name": "IMAGE_FOLDER",
+							"Value": { "Ref": "ImageFolder" }
+						}
+					],
+					"Image": "aws/codebuild/standard:5.0",
+					"Type": "LINUX_CONTAINER"
+				},
+				"LogsConfig": {
+					"S3Logs": {
+						"EncryptionDisabled": true,
+						"Location": {
+							"Fn::Sub": [
+								"${BucketArn}/build-log",
+								{
+									"BucketArn": { "Fn::GetAtt": ["AssetBucket", "Arn"] }
+								}
+							]
+						},
+						"Status": "ENABLED"
+					}
+				},
+				"Name": { "Ref": "CodeBuildProjectName" },
+				"ServiceRole": { "Fn::GetAtt": ["CodeBuildServiceRole", "Arn"] },
+				"Source": {
+					"Location": { "Ref": "CodeBuildProjectGitUrl" },
+					"Type": "GITHUB"
+				},
+				"SourceVersion": { "Ref": "CodeBuildProjectGitBranch" }
+			}
+		},
+		"CodeBuildServiceRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": ["codebuild.amazonaws.com"]
+							},
+							"Action": ["sts:AssumeRole"]
+						}
+					]
+				},
+				"Description": { "Fn::Sub": "CodeBuild Service Role for ${CodeBuildProjectName}" }
+			}
+		},
+		"CodeBuildBasePolicy": {
+			"Type": "AWS::IAM::ManagedPolicy",
+			"Properties": {
+				"Description": {
+					"Fn::Sub": [
+						"Policy used in trust relationship with CodeBuild",
+						{
+							"BucketName": { "Ref": "AssetBucket" }
+						}
+					]
+				},
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Resource": [
+								{
+									"Fn::Sub": [
+										"arn:aws:logs:${Region}:${AccountId}:log-group:/aws/codebuild/${CodeBuildProjectName}",
+										{
+											"Region": { "Ref": "AWS::Region" },
+											"AccountId": { "Ref": "AWS::AccountId" }
+										}
+									]
+								},
+								{
+									"Fn::Sub": [
+										"arn:aws:logs:${Region}:${AccountId}:log-group:/aws/codebuild/${CodeBuildProjectName}:*",
+										{
+											"Region": { "Ref": "AWS::Region" },
+											"AccountId": { "Ref": "AWS::AccountId" }
+										}
+									]
+								}
+							],
+							"Action": ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+						},
+						{
+							"Effect": "Allow",
+							"Resource": [
+								{ "Fn::GetAtt": ["AssetBucket", "Arn"] },
+								{
+									"Fn::Sub": [
+										"${BucketArn}/*",
+										{
+											"BucketArn": { "Fn::GetAtt": ["AssetBucket", "Arn"] }
+										}
+									]
+								}
+							],
+							"Action": ["s3:ListBucket", "s3:PutObject"]
+						}
+					]
+				},
+				"Roles": [{ "Ref": "CodeBuildServiceRole" }]
+			}
+		},
+		"StartBuildFunction": {
+			"Type": "AWS::Lambda::Function",
+			"Properties": {
+				"Code": {
+					"ZipFile": {
+						"Fn::Sub": "const AWS = require('aws-sdk'); exports.handler = async (event) => { const codebuild = new AWS.CodeBuild(); const params = { projectName: '${CodeBuildProjectName}' }; const request = await codebuild.startBuild(params).promise(); };"
+					}
+				},
+				"Description": { "Fn::Sub": "Runs codebuild.startBuild on ${CodeBuildProjectName}" },
+				"Handler": "index.handler",
+				"Role": { "Fn::GetAtt": ["StartBuildFunctionRole", "Arn"] },
+				"Runtime": "nodejs14.x"
+			}
+		},
+		"StartBuildFunctionRole": {
+			"Type": "AWS::IAM::Role",
+			"Properties": {
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"Service": ["lambda.amazonaws.com"]
+							},
+							"Action": ["sts:AssumeRole"]
+						}
+					]
+				},
+				"Description": "The role assumed by our Lambda functions. It is attached to policies."
+			}
+		},
+		"CodeBuildStartAccess": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Action": ["codebuild:StartBuild"],
+							"Resource": [{ "Fn::GetAtt": ["CodeBuildProject", "Arn"] }]
+						}
+					]
+				},
+				"PolicyName": "CodeBuildStartAccess",
+				"Roles": [{ "Ref": "StartBuildFunctionRole" }]
+			}
+		}
+	}
+}
