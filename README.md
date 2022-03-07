@@ -1,3 +1,37 @@
+# InstaTAM
+
+## AssetBuildStack
+
+A CloudFormation stack that sets up a CodeBuild Project. The project deploys a static SvelteKit build to a S3 Bucket. When new images are added to ouur images folder, S3 sends a notification to a Lambda function which starts the project build.
+
+### Creating the stack
+
+aws cloudformation create-stack \
+--profile j4e \
+--stack-name instatam-asset-build-stack \
+--template-body file://asset-build-stack.json \
+--tags 'Key=project,Value=instatam' \
+--region=us-east-1 \
+--capabilities CAPABILITY_IAM \
+--parameters ParameterKey=AssetBucketName,ParameterValue=instatam.click \
+ParameterKey=CanonicalBaseUrl,ParameterValue=https://instatam.click \
+ParameterKey=CodeBuildProjectGitUrl,ParameterValue=https://github.com/michrome/instatam \
+ParameterKey=CodeBuildProjectName,ParameterValue=InstaTAM
+
+### Deleteing the stack
+aws cloudformation delete-stack \
+--profile j4e \
+--stack-name instatam-asset-build-stack \
+--region=us-east-1
+
+### Build environment variables
+
+- CANONICAL_BASE_URL e.g. https://example.com
+- S3 client region e.g. us-east-1 (can be obtained from the stack's AWS::Region pseudo parameter)
+- S3 bucket name
+- S3 origin path
+- images folder
+
 # create-svelte
 
 Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
