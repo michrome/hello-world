@@ -281,6 +281,10 @@
 		}
 	},
 	"Outputs": {
+		"ExportedAssetBucketRegionalDomainName": {
+			"Value": { "Fn::GetAtt": ["AssetBucket", "RegionalDomainName"] },
+			"Export": { "Name": { "Fn::Sub": "${AWS::StackName}-AssetBucketRegionalDomainName" } }
+		},
 		"ExportedDomainName": {
 			"Value": { "Ref": "DomainName" },
 			"Export": { "Name": { "Fn::Sub": "${AWS::StackName}-DomainName" } }
