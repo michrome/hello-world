@@ -1,0 +1,179 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+	"Description": "A CloudFormation stack that sets up a Cloudfront Distribution with Custom Domain with SSL that serves assets from a S3 Bucket.",
+	"Parameters": {
+		"AssetBuildStackName": {
+			"Type": "String",
+			"Description": "The name of the stack that's responsible for managing the S3 bucket and assets"
+		}
+	},
+	"Resources": {
+		"HostedZone": {
+			"Type": "AWS::Route53::HostedZone",
+			"Properties": {
+				"HostedZoneConfig": {
+					"Comment": { "Fn::Sub": "Managed by ${AWS::StackName} stack" }
+				},
+				"Name": { "Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" } }
+			}
+		},
+		"WebDnsRecords": {
+			"Type": "AWS::Route53::RecordSetGroup",
+			"Properties": {
+				"HostedZoneId": { "Ref": "HostedZone" },
+				"RecordSets": [
+					{
+						"Name": { "Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" } },
+						"ResourceRecords": [{ "Fn::GetAtt": ["CloudFrontDistribution", "DomainName"] }],
+						"TTL": 60,
+						"Type": "CNAME"
+					}
+				]
+			}
+		},
+		"Cert": {
+			"Type": "AWS::CertificateManager::Certificate",
+			"Properties": {
+				"DomainName": {
+					"Fn::Sub": [
+						"*.${RootDomainName}",
+						{
+							"RootDomainName": {
+								"Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" }
+							}
+						}
+					]
+				},
+				"DomainValidationOptions": [
+					{
+						"DomainName": { "Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" } },
+						"HostedZoneId": { "Ref": "HostedZone" }
+					}
+				],
+				"ValidationMethod": "DNS"
+			}
+		},
+		"CloudFrontDistribution": {
+			"Type": "AWS::CloudFront::Distribution",
+			"Properties": {
+				"DistributionConfig": {
+					"Aliases": [
+						{
+							"Fn::Sub": [
+								"*.${RootDomainName}",
+								{
+									"RootDomainName": {
+										"Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" }
+									}
+								}
+							]
+						}
+					],
+					"CacheBehaviors": [
+						{
+							"CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+							"PathPattern": "images/*",
+							"ResponseHeadersPolicyId": {
+								"Ref": "ImagesResponseHeadersPolicy"
+							},
+							"TargetOriginId": {
+								"Fn::ImportValue": {
+									"Fn::Sub": "${AssetBuildStackName}-AssetBucketRegionalDomainName"
+								}
+							},
+							"ViewerProtocolPolicy": "redirect-to-https"
+						}
+					],
+					"Comment": {
+						"Fn::Sub": [
+							"CloudFront for ${RootDomainName}. Managed by ${StackName} stack.",
+							{
+								"RootDomainName": {
+									"Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" }
+								},
+								"StackName": { "Ref": "AWS::StackName" }
+							}
+						]
+					},
+					"DefaultCacheBehavior": {
+						"CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+						"Compress": true,
+						"TargetOriginId": {
+							"Fn::ImportValue": {
+								"Fn::Sub": "${AssetBuildStackName}-AssetBucketRegionalDomainName"
+							}
+						},
+						"ViewerProtocolPolicy": "redirect-to-https"
+					},
+					"DefaultRootObject": "index.html",
+					"Enabled": true,
+					"HttpVersion": "http2",
+					"Origins": [
+						{
+							"DomainName": {
+								"Fn::ImportValue": {
+									"Fn::Sub": "${AssetBuildStackName}-AssetBucketRegionalDomainName"
+								}
+							},
+							"Id": {
+								"Fn::ImportValue": {
+									"Fn::Sub": "${AssetBuildStackName}-AssetBucketRegionalDomainName"
+								}
+							},
+							"OriginPath": "/www",
+							"S3OriginConfig": {
+								"OriginAccessIdentity": {
+									"Fn::Sub": [
+										"origin-access-identity/cloudfront/${Id}",
+										{ "Id": { "Ref": "CloudFrontOriginAccessIdentity" } }
+									]
+								}
+							}
+						}
+					],
+					"ViewerCertificate": {
+						"AcmCertificateArn": { "Ref": "Cert" },
+						"MinimumProtocolVersion": "TLSv1.2_2021",
+						"SslSupportMethod": "sni-only"
+					}
+				}
+			}
+		},
+		"CloudFrontOriginAccessIdentity": {
+			"Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+			"Properties": {
+				"CloudFrontOriginAccessIdentityConfig": {
+					"Comment": {
+						"Fn::Sub": [
+							"CloudFront Id to access ${Bucket}",
+							{
+								"Bucket": {
+									"Fn::ImportValue": {
+										"Fn::Sub": "${AssetBuildStackName}-AssetBucketRegionalDomainName"
+									}
+								}
+							}
+						]
+					}
+				}
+			}
+		},
+		"ImagesResponseHeadersPolicy": {
+			"Type": "AWS::CloudFront::ResponseHeadersPolicy",
+			"Properties": {
+				"ResponseHeadersPolicyConfig": {
+					"CustomHeadersConfig": {
+						"Items": [
+							{
+								"Header": "Cache-Control",
+								"Override": true,
+								"Value": "max-age=31536000"
+							}
+						]
+					},
+					"Name": "ImagesResponseHeadersPolicy"
+				}
+			}
+		}
+	}
+}
