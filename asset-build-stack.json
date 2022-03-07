@@ -2,18 +2,10 @@
 	"AWSTemplateFormatVersion": "2010-09-09",
 	"Description": "A CloudFormation stack that sets up a CodeBuild Project. The project deploys a static SvelteKit build to a S3 Bucket. When new images are added to ouur images folder, S3 sends a notification to a Lambda function which starts the project build.",
 	"Parameters": {
-		"AssetBucketName": {
-			"Type": "String",
-			"Description": "Name of the S3 Bucket storing our web assets"
-		},
 		"AssetFolder": {
 			"Type": "String",
 			"Default": "www",
 			"Description": "The name of the folder in AssetBucket for our web assets"
-		},
-		"CanonicalBaseUrl": {
-			"Type": "String",
-			"Description": "Our canonical base URL e.g. https://example.com"
 		},
 		"CodeBuildProjectGitUrl": {
 			"Type": "String",
@@ -28,10 +20,14 @@
 			"Type": "String",
 			"Description": "The name of our CodeBuild project"
 		},
+		"DomainName": {
+			"Type": "String",
+			"Description": "Our domain name e.g. example.com"
+		},
 		"ImageFolder": {
 			"Type": "String",
 			"Default": "www/images",
-			"Description": "The name of the folder in AssetBucket for our images. You probably need to edit if changing CanonicalBaseUrl or ImageUrlPath."
+			"Description": "The name of the folder in AssetBucket for our images. You probably need to edit if changing AssetFolder or ImageUrlPath."
 		},
 		"ImageUrlPath": {
 			"Type": "String",
@@ -44,7 +40,7 @@
 			"Type": "AWS::S3::Bucket",
 			"DependsOn": "AssetBucketInvokeStartBuildFunctionPermission",
 			"Properties": {
-				"BucketName": { "Ref": "AssetBucketName" },
+				"BucketName": { "Ref": "DomainName" },
 				"NotificationConfiguration": {
 					"LambdaConfigurations": [
 						{
@@ -91,7 +87,7 @@
 				"Action": "lambda:InvokeFunction",
 				"FunctionName": { "Fn::GetAtt": ["StartBuildFunction", "Arn"] },
 				"Principal": "s3.amazonaws.com",
-				"SourceArn": { "Fn::Sub": "arn:aws:s3:::${AssetBucketName}" }
+				"SourceArn": { "Fn::Sub": "arn:aws:s3:::${DomainName}" }
 			}
 		},
 		"CodeBuildProject": {
@@ -106,14 +102,14 @@
 				},
 				"ConcurrentBuildLimit": 1,
 				"Description": {
-					"Fn::Sub": "CodeBuild Project for ${CanonicalBaseUrl}. Managed by ${AWS::StackName} stack"
+					"Fn::Sub": "CodeBuild Project for ${DomainName}. Managed by ${AWS::StackName} stack"
 				},
 				"Environment": {
 					"ComputeType": "BUILD_GENERAL1_SMALL",
 					"EnvironmentVariables": [
 						{
 							"Name": "ASSET_BUCKET_NAME",
-							"Value": { "Ref": "AssetBucketName" }
+							"Value": { "Ref": "DomainName" }
 						},
 						{
 							"Name": "ASSET_FOLDER",
@@ -125,7 +121,7 @@
 						},
 						{
 							"Name": "CANONICAL_BASE_URL",
-							"Value": { "Ref": "CanonicalBaseUrl" }
+							"Value": { "Fn::Sub": "https://${DomainName}" }
 						},
 						{
 							"Name": "IMAGE_FOLDER",

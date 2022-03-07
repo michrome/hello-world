@@ -13,10 +13,9 @@ aws cloudformation create-stack \
 --tags 'Key=project,Value=instatam' \
 --region=us-east-1 \
 --capabilities CAPABILITY_IAM \
---parameters ParameterKey=AssetBucketName,ParameterValue=instatam.click \
-ParameterKey=CanonicalBaseUrl,ParameterValue=https://instatam.click \
-ParameterKey=CodeBuildProjectGitUrl,ParameterValue=https://github.com/michrome/instatam \
-ParameterKey=CodeBuildProjectName,ParameterValue=InstaTAM
+--parameters ParameterKey=CodeBuildProjectGitUrl,ParameterValue=https://github.com/michrome/instatam \
+ParameterKey=CodeBuildProjectName,ParameterValue=InstaTAM \
+ParameterKey=DomainName,ParameterValue=instatam.click
 
 ### Deleteing the stack
 aws cloudformation delete-stack \
