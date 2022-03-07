@@ -279,5 +279,11 @@
 				"Roles": [{ "Ref": "StartBuildFunctionRole" }]
 			}
 		}
+	},
+	"Outputs": {
+		"ExportedDomainName": {
+			"Value": { "Ref": "DomainName" },
+			"Export": { "Name": { "Fn::Sub": "${AWS::StackName}-DomainName" } }
+		}
 	}
 }
