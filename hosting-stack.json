@@ -23,10 +23,12 @@
 				"HostedZoneId": { "Ref": "HostedZone" },
 				"RecordSets": [
 					{
+						"AliasTarget": {
+							"DNSName": { "Fn::GetAtt": ["CloudFrontDistribution", "DomainName"] },
+							"HostedZoneId": "Z2FDTNDATAQYW2"
+						},
 						"Name": { "Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" } },
-						"ResourceRecords": [{ "Fn::GetAtt": ["CloudFrontDistribution", "DomainName"] }],
-						"TTL": 60,
-						"Type": "CNAME"
+						"Type": "A"
 					}
 				]
 			}
