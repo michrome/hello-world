@@ -23,6 +23,29 @@ aws cloudformation delete-stack \
 --stack-name instatam-asset-build-stack \
 --region=us-east-1
 
+## HostingStack
+
+A CloudFormation stack that sets up a Cloudfront Distribution with Custom Domain with SSL that serves assets from a S3 Bucket.
+
+### Creating the stack
+
+aws cloudformation create-stack \
+--profile j4e \
+--stack-name instatam-hosting-stack \
+--template-body file://hosting-stack.json \
+--tags 'Key=project,Value=instatam' \
+--region=us-east-1 \
+--capabilities CAPABILITY_IAM \
+--parameters ParameterKey=AssetBuildStackName,ParameterValue=instatam-asset-build-stack
+
+> You must update the domain's DNS to point to the hosted zone to allow the certificate to provision
+
+### Deleteing the stack
+aws cloudformation delete-stack \
+--profile j4e \
+--stack-name instatam-hosting-stack \
+--region=us-east-1
+
 ### Build environment variables
 
 - CANONICAL_BASE_URL e.g. https://example.com
