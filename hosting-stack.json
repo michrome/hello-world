@@ -37,14 +37,7 @@
 			"Type": "AWS::CertificateManager::Certificate",
 			"Properties": {
 				"DomainName": {
-					"Fn::Sub": [
-						"*.${RootDomainName}",
-						{
-							"RootDomainName": {
-								"Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" }
-							}
-						}
-					]
+					"Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" }
 				},
 				"DomainValidationOptions": [
 					{
@@ -61,14 +54,7 @@
 				"DistributionConfig": {
 					"Aliases": [
 						{
-							"Fn::Sub": [
-								"*.${RootDomainName}",
-								{
-									"RootDomainName": {
-										"Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" }
-									}
-								}
-							]
+							"Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" }
 						}
 					],
 					"CacheBehaviors": [
@@ -160,6 +146,36 @@
 				}
 			}
 		},
+		"BucketPolicy": {
+			"Type": "AWS::S3::BucketPolicy",
+			"Properties": {
+				"PolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [
+						{
+							"Effect": "Allow",
+							"Principal": {
+								"AWS": {
+									"Fn::Sub": "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}"
+								}
+							},
+							"Action": "s3:GetObject",
+							"Resource": {
+								"Fn::Join": [
+									"",
+									[
+										"arn:aws:s3:::",
+										{ "Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" } },
+										"/www/*"
+									]
+								]
+							}
+						}
+					]
+				},
+				"Bucket": { "Fn::ImportValue": { "Fn::Sub": "${AssetBuildStackName}-DomainName" } }
+			}
+		},
 		"ImagesResponseHeadersPolicy": {
 			"Type": "AWS::CloudFront::ResponseHeadersPolicy",
 			"Properties": {
@@ -173,7 +189,7 @@
 							}
 						]
 					},
-					"Name": "ImagesResponseHeadersPolicy"
+					"Name": { "Fn::Sub": "${AssetBuildStackName}ImagesResponseHeadersPolicy" }
 				}
 			}
 		}
